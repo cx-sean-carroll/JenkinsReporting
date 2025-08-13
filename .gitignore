@@ -1,0 +1,43 @@
+# Jenkins workspace files
+workspace/
+builds/
+*.log
+
+# API keys and secrets
+*.key
+*.pem
+*.p12
+secrets/
+.env
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+
+# Checkmarx CLI cache
+CxONE_CLI/
+
+# Reports and outputs
+*.pdf
+*.html
+*.json
+*.sarif
+*.sonar
+
+# Git
+.git/
+.gitignore
+
+# Jenkins
+.jenkins/
