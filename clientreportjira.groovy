@@ -20,6 +20,11 @@ pipeline {
      * SECURITY NOTE: This pipeline requires API keys to be provided via Jenkins parameters
      *               or credentials store. Never commit API keys to version control.
      * 
+     * PDF REPORT OPTIONS:
+     * Valid options for --report-pdf-options: ScanSummary,ExecutiveSummary,ScanResults
+     * Default: ScanSummary,ExecutiveSummary,ScanResults
+     * Note: Other options like Sast,Sca,Iac-Security may cause CLI errors
+     * 
      * AUTHOR: Sean Carroll
      * LAST UPDATED: 2025
      * ========================================================================
@@ -85,14 +90,19 @@ pipeline {
             description: 'Scan timeout in seconds (default: 1 hour)'
         )
         string(
+            name: 'ENABLE_SCORECARD_SCAN',
+            defaultValue: 'false',
+            description: 'Enable Scorecard scan (requires GitHub token and may increase scan time)'
+        )
+        string(
             name: 'CX_THRESHOLDS',
             defaultValue: '',
             description: 'Scan thresholds (e.g., "sast-high=10; sast-medium=20; sca-high=10")'
         )
         string(
             name: 'CX_PDF_SECTIONS',
-            defaultValue: 'all',
-            description: 'PDF report sections to include (e.g., "all" or "summary,details,remediation")'
+            defaultValue: 'ScanSummary,ExecutiveSummary,ScanResults',
+            description: 'PDF report sections to include (e.g., "ScanSummary,ExecutiveSummary,ScanResults")'
         )
     }
 
@@ -129,6 +139,19 @@ pipeline {
                     echo "Using CLI version parameter: ${params.CLI_VERSION}"
                     echo "Using report format: ${params.CX_REPORT_FORMAT}"
                     echo "Using scan timeout: ${params.CX_SCAN_TIMEOUT} seconds"
+                    
+                    // Validate PDF options if PDF format is selected
+                    if (params.CX_REPORT_FORMAT == 'pdf') {
+                        // Only allow the proven working PDF options to avoid CLI errors
+                        def validPdfOptions = ['ScanSummary', 'ExecutiveSummary', 'ScanResults']
+                        def requestedOptions = params.CX_PDF_SECTIONS.split(',')*.trim()
+                        def invalidOptions = requestedOptions.findAll { !validPdfOptions.contains(it) }
+                        
+                        if (invalidOptions) {
+                            error("Invalid PDF options: ${invalidOptions}. Valid options are: ${validPdfOptions.join(', ')}")
+                        }
+                        echo "PDF options validation passed: ${params.CX_PDF_SECTIONS}"
+                    }
 
                     /* -------------------------------------------------------------------
                      * CLI DOWNLOAD SECTION
@@ -362,11 +385,13 @@ pipeline {
                     }
                     
                     // Add PDF-specific flags for email and sections
+                    // Valid PDF options: Iac-Security,Sast,Sca,ScanSummary,ExecutiveSummary,ScanResults
                     if (params.CX_REPORT_FORMAT == 'pdf') {
                         scanCmd += " --report-pdf-email ${quote}${params.EMAIL_RECIPIENT}${quote}"
                         scanCmd += " --report-pdf-options ${quote}${params.CX_PDF_SECTIONS}${quote}"
                         echo "DEBUG: Added PDF email recipient: ${params.EMAIL_RECIPIENT}"
                         echo "DEBUG: Added PDF sections: ${params.CX_PDF_SECTIONS}"
+                        echo "DEBUG: Valid PDF options: ScanSummary,ExecutiveSummary,ScanResults"
                     }
                     
                     echo "DEBUG: Using correct Checkmarx CLI flags based on official documentation"
